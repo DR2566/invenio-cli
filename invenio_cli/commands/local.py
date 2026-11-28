@@ -13,7 +13,8 @@ from distutils.dir_util import copy_tree
 from os import environ
 from pathlib import Path
 from shutil import copyfile
-from subprocess import Popen as popen
+from subprocess import Popen as popen, PIPE
+from typing import Mapping
 
 import click
 
@@ -100,6 +101,9 @@ class LocalCommands(Commands):
             output="Copied js lock files to instance.", status_code=0
         )
 
+    def _start_subprocess(self, command: list[str], env: Mapping[str, str] | None = None) -> popen:
+        return popen(command, env=env, start_new_session=True, stdout=PIPE, stderr=PIPE)
+
     def update_statics_and_assets(self, force, debug=False, log_file=None):
         """High-level command to update less/js/images/... files.
 
@@ -144,26 +148,13 @@ class LocalCommands(Commands):
                     break
         return response
 
-    def _handle_sigint(self, name, process):
-        """Terminate services on SIGINT."""
-        prev_handler = signal.getsignal(signal.SIGINT)
-
-        def _signal_handler(sig, frame):
-            click.secho(f"Stopping {name}...", fg="green")
-            process.terminate()
-            click.secho(f"{name} stopped...", fg="green")
-            if prev_handler is not None:
-                prev_handler(sig, frame)
-
-        signal.signal(signal.SIGINT, _signal_handler)
-
     def run_web(self, host, port, debug=True):
         """Run development server."""
         click.secho("Starting up local (development) server...", fg="green")
         run_env = environ.copy()
         run_env["FLASK_DEBUG"] = "1" if debug else "0"
         pkg_man = self.cli_config.python_package_manager
-        proc = popen(
+        proc = self._start_subprocess(
             pkg_man.run_command(
                 "invenio",
                 "run",
@@ -180,9 +171,8 @@ class LocalCommands(Commands):
             ),
             env=run_env,
         )
-        self._handle_sigint("Web server", proc)
         click.secho(f"Instance running!\nVisit https://{host}:{port}", fg="green")
-        return [proc]
+        return [("Web server", proc)]
 
     def run_worker(
         self,
@@ -216,10 +206,9 @@ class LocalCommands(Commands):
             ]
 
         processes = []
-        proc = popen(celery_command)
-        self._handle_sigint("Celery worker", proc)
+        proc = self._start_subprocess(celery_command)
         click.secho("Worker running!", fg="green")
-        processes.append(proc)
+        processes.append(("Celery worker", proc))
 
         if jobs_scheduler:
             processes.extend(
@@ -252,10 +241,9 @@ class LocalCommands(Commands):
                 celery_log_file,
             ]
 
-        proc = popen(beat_command)
-        self._handle_sigint("Jobs scheduler", proc)
+        proc = self._start_subprocess(beat_command)
         click.secho("Jobs scheduler running!", fg="green")
-        return [proc]
+        return [("Jobs scheduler", proc)]
 
     def run_all(
         self,

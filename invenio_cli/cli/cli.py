@@ -8,6 +8,7 @@
 
 import os
 from pathlib import Path
+from ..helpers import ProcessesSupervisor
 
 import click
 
@@ -234,8 +235,7 @@ def run_web(cli_config, host, port, debug, services):
 
     commands = LocalCommands(cli_config)
     processes = commands.run_web(host=host, port=str(port), debug=debug)
-    for proc in processes:
-        proc.wait()
+    ProcessesSupervisor(processes, click.echo).supervise()
 
 
 @run_group.command("worker")
@@ -259,8 +259,7 @@ def run_worker(
         celery_pool=celery_pool,
         jobs_scheduler=jobs_scheduler,
     )
-    for proc in processes:
-        proc.wait()
+    ProcessesSupervisor(processes, click.echo).supervise()
 
 
 @run_group.command("all")
@@ -300,8 +299,7 @@ def run_all(
         celery_pool=celery_pool,
         jobs_scheduler=jobs_scheduler,
     )
-    for proc in processes:
-        proc.wait()
+    ProcessesSupervisor(processes, click.echo).supervise()
 
 
 @invenio_cli.command()

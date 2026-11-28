@@ -8,10 +8,12 @@ from .cookiecutter_wrapper import CookiecutterWrapper
 from .docker_helper import DockerHelper
 from .env import env
 from .filesystem import get_created_files
+from .processes_supervisor import ProcessesSupervisor
 
 __all__ = (
     "CookiecutterWrapper",
     "DockerHelper",
     "env",
     "get_created_files",
+    "ProcessesSupervisor"
 )
